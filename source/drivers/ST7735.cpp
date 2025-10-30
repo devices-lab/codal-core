@@ -66,7 +66,7 @@ namespace codal
 {
 
 ST7735::ST7735(ScreenIO &io, Pin &cs, Pin &dc)
-    : io(io), cs(&cs), dc(&dc), work(NULL), displayIsFree(1)
+    : io(io), cs(&cs), dc(&dc), work(NULL), inProgressLock(1)
 {
     double16 = false;
     inSleepMode = false;
@@ -146,7 +146,6 @@ struct ST7735WorkBuffer
     unsigned x;
     uint32_t *paletteTable;
     unsigned srcLeft;
-    volatile bool inProgress;
     uint32_t expPalette[256];
 };
 
@@ -288,8 +287,6 @@ void ST7735::sendColorsStep(ST7735 *st)
 
 void ST7735::startTransfer(unsigned size)
 {
-    // io.startSend(work->dataBuf, size, (PVoidCallback)&ST7735::sendDone, this);
-    // io.startSend(work->dataBuf, size, (PVoidCallback)&ST7735::sendColorsStep, this);
     io.startSend(work->dataBuf, size, (PVoidCallback)&ST7735::sendColorsStep, this);
 }
 
@@ -306,18 +303,14 @@ void ST7735::startRAMWR(int cmd)
 
 void ST7735::sendDone(ST7735 *st)
 {
-    // this executes outside of interrupt context, so we don't get a race
-    // with waitForSendDone
-    st->work->inProgress = false;
-    st->displayIsFree.notify();
+    st->inProgressLock.notify();
 }
 
-void ST7735::waitForSendDone()
-{
-    // if (!work)
-    //     return;
-    // displayIsFree.wait();
-}
+
+/**
+* Deprecated; no longer neccessary. sendIndexedImage handles this.
+*/
+void ST7735::waitForSendDone() {}
 
 int ST7735::setSleep(bool sleepMode)
 {
@@ -359,16 +352,14 @@ int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height
         else
             for (int i = 0; i < 256; ++i)
                 work->expPalette[i] = 0x1011 * (i & 0xf) | (0x110100 * (i >> 4));
-        // EventModel::defaultEventBus->listen(DEVICE_ID_DISPLAY, 100, this, &ST7735::sendDone);
     }
 
-    displayIsFree.wait();
-    if (work->inProgress || inSleepMode)
+    inProgressLock.wait();
+    if (inSleepMode)
         return DEVICE_BUSY;
 
     work->paletteTable = palette;
 
-    work->inProgress = true;
     work->srcPtr = src;
     work->width = width;
     work->height = height;

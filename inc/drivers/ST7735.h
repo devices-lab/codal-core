@@ -53,7 +53,7 @@ protected:
     uint8_t cmdBuf[20];
     ST7735WorkBuffer *work;
     bool inSleepMode;
-    FiberLock displayIsFree;
+    FiberLock inProgressLock;
 
     // if true, every pixel will be plotted as 4 pixels and 16 bit color mode
     // will be used; this is for ILI9341 which usually has 320x240 screens
