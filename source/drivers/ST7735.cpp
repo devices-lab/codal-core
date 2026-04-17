@@ -137,6 +137,11 @@ static const uint8_t initCmds[] = {
 #define DATABUFSIZE 500
 #endif
 
+enum PaletteBPP {
+  BPP_4,
+  BPP_8
+};
+
 struct ST7735WorkBuffer
 {
     unsigned width;
@@ -148,6 +153,7 @@ struct ST7735WorkBuffer
     uint32_t *paletteTable;
     unsigned srcLeft;
     uint32_t expPalette[256];
+    PaletteBPP bpp_mode;
 };
 
 void ST7735::sendBytes(unsigned num)
@@ -160,11 +166,24 @@ void ST7735::sendBytes(unsigned num)
     if (double16)
     {
         uint32_t *dst = (uint32_t *)work->dataBuf;
-        while (num--)
-        {
-            uint8_t v = *work->srcPtr++;
-            *dst++ = work->expPalette[v & 0xf];
-            *dst++ = work->expPalette[v >> 4];
+
+        switch (work->bpp_mode) {
+            case PaletteBPP::BPP_8: {
+                while (num--)
+                {
+                  *dst++ = work->expPalette[*work->srcPtr++];
+                }
+                break;
+            }
+            case PaletteBPP::BPP_4: {
+                while (num--)
+                {
+                  uint8_t v = *work->srcPtr++;
+                  *dst++ = work->expPalette[v & 0xf];
+                  *dst++ = work->expPalette[v >> 4];
+                }
+                break;
+            }
         }
         startTransfer((uint8_t *)dst - work->dataBuf);
     }
@@ -193,20 +212,35 @@ void ST7735::sendWords(unsigned numBytes)
     uint32_t *tbl = work->expPalette;
     uint32_t *dst = (uint32_t *)work->dataBuf;
 
-    if (double16)
-        while (numWords--)
-        {
-            uint32_t v = *src++;
-            *dst++ = tbl[0xf & (v >> 0)];
-            *dst++ = tbl[0xf & (v >> 4)];
-            *dst++ = tbl[0xf & (v >> 8)];
-            *dst++ = tbl[0xf & (v >> 12)];
-            *dst++ = tbl[0xf & (v >> 16)];
-            *dst++ = tbl[0xf & (v >> 20)];
-            *dst++ = tbl[0xf & (v >> 24)];
-            *dst++ = tbl[0xf & (v >> 28)];
+    if (double16) {
+        switch (work->bpp_mode) {
+            case PaletteBPP::BPP_8: {
+                while (numWords--)
+                {
+                    uint32_t v = *src++;
+                    *dst++ = tbl[v & 0xff];
+                    *dst++ = tbl[(v >> 8) & 0xff];
+                    *dst++ = tbl[(v >> 16) & 0xff];
+                    *dst++ = tbl[v >> 24];
+                }
+            }
+            case PaletteBPP::BPP_4: {
+                while (numWords--)
+                {
+                  uint32_t v = *src++;
+                  *dst++ = tbl[0xf & (v >> 0)];
+                  *dst++ = tbl[0xf & (v >> 4)];
+                  *dst++ = tbl[0xf & (v >> 8)];
+                  *dst++ = tbl[0xf & (v >> 12)];
+                  *dst++ = tbl[0xf & (v >> 16)];
+                  *dst++ = tbl[0xf & (v >> 20)];
+                  *dst++ = tbl[0xf & (v >> 24)];
+                  *dst++ = tbl[0xf & (v >> 28)];
+                }
+                break;
+            }
         }
-    else
+    } else {
         while (numWords--)
         {
             uint32_t s = *src++;
@@ -218,7 +252,7 @@ void ST7735::sendWords(unsigned numBytes)
             v = tbl[s >> 24];
             *dst++ = (o >> 16) | (v << 8);
         }
-
+    }
     work->srcPtr = (uint8_t *)src;
     startTransfer((uint8_t *)dst - work->dataBuf);
 }
@@ -231,17 +265,37 @@ void ST7735::sendColorsStep(ST7735 *st)
     {
         auto palette = work->paletteTable;
         work->paletteTable = NULL;
-        memset(work->dataBuf, 0, sizeof(work->dataBuf));
-        uint8_t *base = work->dataBuf;
-        for (int i = 0; i < 16; ++i)
-        {
-            base[i] = (palette[i] >> 18) & 0x3f;
-            base[i + 32] = (palette[i] >> 10) & 0x3f;
-            base[i + 32 + 64] = (palette[i] >> 2) & 0x3f;
+
+        switch (work->bpp_mode) {
+            case PaletteBPP::BPP_8: {
+                  // Software expand 256-entry palette; no hw LUT for 8BPP
+                if (st->double16)
+                    for (int i = 0; i < 256; ++i) {
+                        uint16_t e = ENC16((palette[i] >> 16) & 0xff,
+                                           (palette[i] >> 8)  & 0xff,
+                                            palette[i]        & 0xff);
+                        work->expPalette[i] = e | ((uint32_t)e << 16);
+                    }
+                else
+                    for (int i = 0; i < 256; ++i)
+                        work->expPalette[i] = palette[i] & 0xFFFFFF;
+                break;
+            }
+            case PaletteBPP::BPP_4: {
+                memset(work->dataBuf, 0, sizeof(work->dataBuf));
+                uint8_t *base = work->dataBuf;
+                for (int i = 0; i < 16; ++i)
+                {
+                    base[i] = (palette[i] >> 18) & 0x3f;
+                    base[i + 32] = (palette[i] >> 10) & 0x3f;
+                    base[i + 32 + 64] = (palette[i] >> 2) & 0x3f;
+                }
+                st->startRAMWR(0x2D);
+                st->io.send(work->dataBuf, 128);
+                st->endCS();
+                break;
+            }
         }
-        st->startRAMWR(0x2D);
-        st->io.send(work->dataBuf, 128);
-        st->endCS();
     }
 
     if (work->x == 0)
@@ -279,10 +333,12 @@ void ST7735::sendColorsStep(ST7735 *st)
     }
     else
     {
-        if (st->double16)
-            st->sendWords(sizeof(work->dataBuf) / 8);
-        else
+        if (st->double16) {
+            // 8BPP: 1 src byte → 1 uint32 out; 4BPP: 1 src byte → 2 uint32 out
+            st->sendWords(sizeof(work->dataBuf) / (work->bpp8 ? 4 : 8));
+        } else {
             st->sendWords((sizeof(work->dataBuf) / (3 * 4)) * 4);
+        }
     }
 }
 
@@ -345,16 +401,37 @@ int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height
     {
         work = new ST7735WorkBuffer;
         memset(work, 0, sizeof(*work));
-        if (double16)
-            for (int i = 0; i < 16; ++i)
-            {
-                uint16_t e = ENC16(i, i, i);
-                work->expPalette[i] = e | (e << 16);
-            }
-        else
-            for (int i = 0; i < 256; ++i)
-                work->expPalette[i] = 0x1011 * (i & 0xf) | (0x110100 * (i >> 4));
+        work->bpp8 = !is8bpp; // force palette reinit below
     }
+
+    if (work->bpp8 != is8bpp || !palette)
+    {
+        work->bpp8 = is8bpp;
+        // Init default grayscale expPalette (overwritten later if palette != NULL)
+        if (double16)
+        {
+            if (is8bpp)
+                for (int i = 0; i < 256; ++i) {
+                    uint16_t e = ENC16(i, i, i);
+                    work->expPalette[i] = e | ((uint32_t)e << 16);
+                }
+            else
+                for (int i = 0; i < 16; ++i) {
+                    uint16_t e = ENC16(i, i, i);
+                    work->expPalette[i] = e | (e << 16);
+                }
+        }
+        else
+        {
+            if (is8bpp)
+                for (int i = 0; i < 256; ++i)
+                    work->expPalette[i] = i | (i << 8) | (i << 16);
+            else
+                for (int i = 0; i < 256; ++i)
+                    work->expPalette[i] = 0x1011 * (i & 0xf) | (0x110100 * (i >> 4));
+        }
+    }
+
 
     inProgressLock.wait();
     if (inSleepMode)
@@ -365,14 +442,15 @@ int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height
     work->srcPtr = src;
     work->width = width;
     work->height = height;
-    work->srcLeft = (height + 1) >> 1;
+    work->bpp_mode = PaletteBPP::BPP_8;
+    work->srcLeft = (work->bpp_mode == PaletteBPP::BPP_8) ? (height) : (height + 1) >> 1;
+
     // when not scaling up, we don't care about where lines end
     if (!double16)
         work->srcLeft *= width;
     work->x = 0;
 
     sendColorsStep(this);
-
     return DEVICE_OK;
 }
 
