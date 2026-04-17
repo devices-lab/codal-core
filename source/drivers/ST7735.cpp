@@ -109,7 +109,7 @@ static const uint8_t initCmds[] = {
       #endif
     ST7735_INVOFF , 0      ,  // 13: Don't invert display, no args, no delay
     ST7735_COLMOD , 1      ,  // 15: set color mode, 1 arg, no delay:
-      0x05,                  //     12-bit color
+      0x03,                  //     12-bit color
 
     ST7735_GMCTRP1, 16      , //  1: Magical unicorn dust, 16 args, no delay:
       0x02, 0x1c, 0x07, 0x12,
@@ -446,8 +446,7 @@ int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height
     work->width = width;
     work->height = height;
     work->bpp_mode = PaletteBPP::BPP_8;
-    // work->srcLeft = (work->bpp_mode == PaletteBPP::BPP_8) ? (height) : (height + 1) >> 1;
-    work->srcLeft = width * height;
+    work->srcLeft = (work->bpp_mode == PaletteBPP::BPP_8) ? (height) : (height + 1) >> 1;
 
     // when not scaling up, we don't care about where lines end
     if (!double16)
