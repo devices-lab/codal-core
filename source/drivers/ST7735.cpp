@@ -215,14 +215,23 @@ void ST7735::sendWords(unsigned numBytes)
     if (double16) {
         switch (work->bpp_mode) {
             case PaletteBPP::BPP_8: {
-                while (numWords--)
-                {
+                uint16_t *dst16 = (uint16_t *)work->dataBuf;
+
+                while (numWords--) {
                     uint32_t v = *src++;
-                    *dst++ = tbl[v & 0xff];
-                    *dst++ = tbl[(v >> 8) & 0xff];
-                    *dst++ = tbl[(v >> 16) & 0xff];
-                    *dst++ = tbl[v >> 24];
+                    *dst16++ = tbl[v & 0xff];
+                    *dst16++ = tbl[(v >> 8) & 0xff];
+                    *dst16++ = tbl[(v >> 16) & 0xff];
+                    *dst16++ = tbl[v >> 24];
                 }
+                // while (numWords--)
+                // {
+                //     uint32_t v = *src++;
+                //     *dst++ = tbl[v & 0xff];
+                //     *dst++ = tbl[(v >> 8) & 0xff];
+                //     *dst++ = tbl[(v >> 16) & 0xff];
+                //     *dst++ = tbl[v >> 24];
+                // }
                 break;
             }
             case PaletteBPP::BPP_4: {
