@@ -257,6 +257,8 @@ void ST7735::sendWords(unsigned numBytes)
     startTransfer((uint8_t *)dst - work->dataBuf);
 }
 
+#define ENC16(r, g, b) (((r << 3) | (g >> 3)) & 0xff) | (((b | (g << 5)) & 0xff) << 8)
+
 void ST7735::sendColorsStep(ST7735 *st)
 {
     ST7735WorkBuffer *work = st->work;
@@ -393,8 +395,6 @@ int ST7735::setSleep(bool sleepMode)
     return DEVICE_OK;
 }
 
-#define ENC16(r, g, b) (((r << 3) | (g >> 3)) & 0xff) | (((b | (g << 5)) & 0xff) << 8)
-
 int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height, uint32_t *palette)
 {
     if (!work)
@@ -411,7 +411,7 @@ int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height
         // Init default grayscale expPalette (overwritten later if palette != NULL)
         if (double16)
         {
-            if (work->bpp_mode = PaletteBPP::BPP_8)
+            if (work->bpp_mode == PaletteBPP::BPP_8)
                 for (int i = 0; i < 256; ++i) {
                     uint16_t e = ENC16(i, i, i);
                     work->expPalette[i] = e | ((uint32_t)e << 16);
@@ -424,7 +424,7 @@ int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height
         }
         else
         {
-            if (work->bpp_mode = PaletteBPP::BPP_8)
+            if (work->bpp_mode == PaletteBPP::BPP_8)
                 for (int i = 0; i < 256; ++i)
                     work->expPalette[i] = i | (i << 8) | (i << 16);
             else
