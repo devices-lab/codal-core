@@ -232,6 +232,9 @@ void ST7735::sendWords(unsigned numBytes)
                 //     *dst++ = tbl[(v >> 16) & 0xff];
                 //     *dst++ = tbl[v >> 24];
                 // }
+
+                work->srcPtr = (uint8_t *)src;
+                startTransfer((uint8_t *)dst16 - work->dataBuf);
                 break;
             }
             case PaletteBPP::BPP_4: {
