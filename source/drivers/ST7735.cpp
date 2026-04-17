@@ -215,26 +215,14 @@ void ST7735::sendWords(unsigned numBytes)
     if (double16) {
         switch (work->bpp_mode) {
             case PaletteBPP::BPP_8: {
-                uint16_t *dst16 = (uint16_t *)work->dataBuf;
-
-                while (numWords--) {
+                while (numWords--)
+                {
                     uint32_t v = *src++;
-                    *dst16++ = tbl[v & 0xff];
-                    *dst16++ = tbl[(v >> 8) & 0xff];
-                    *dst16++ = tbl[(v >> 16) & 0xff];
-                    *dst16++ = tbl[v >> 24];
+                    *dst++ = tbl[v & 0xff];
+                    *dst++ = tbl[(v >> 8) & 0xff];
+                    *dst++ = tbl[(v >> 16) & 0xff];
+                    *dst++ = tbl[v >> 24];
                 }
-                // while (numWords--)
-                // {
-                //     uint32_t v = *src++;
-                //     *dst++ = tbl[v & 0xff];
-                //     *dst++ = tbl[(v >> 8) & 0xff];
-                //     *dst++ = tbl[(v >> 16) & 0xff];
-                //     *dst++ = tbl[v >> 24];
-                // }
-
-                work->srcPtr = (uint8_t *)src;
-                startTransfer((uint8_t *)dst16 - work->dataBuf);
                 break;
             }
             case PaletteBPP::BPP_4: {
@@ -458,7 +446,8 @@ int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height
     work->width = width;
     work->height = height;
     work->bpp_mode = PaletteBPP::BPP_8;
-    work->srcLeft = (work->bpp_mode == PaletteBPP::BPP_8) ? (height) : (height + 1) >> 1;
+    // work->srcLeft = (work->bpp_mode == PaletteBPP::BPP_8) ? (height) : (height + 1) >> 1;
+    work->srcLeft = width * height;
 
     // when not scaling up, we don't care about where lines end
     if (!double16)
