@@ -109,7 +109,7 @@ static const uint8_t initCmds[] = {
       #endif
     ST7735_INVOFF , 0      ,  // 13: Don't invert display, no args, no delay
     ST7735_COLMOD , 1      ,  // 15: set color mode, 1 arg, no delay:
-      0x05,                  //     12-bit color
+      0x05,                  //     16-bit color
 
     ST7735_GMCTRP1, 16      , //  1: Magical unicorn dust, 16 args, no delay:
       0x02, 0x1c, 0x07, 0x12,
