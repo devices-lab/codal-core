@@ -401,16 +401,17 @@ int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height
     {
         work = new ST7735WorkBuffer;
         memset(work, 0, sizeof(*work));
-        work->bpp8 = !is8bpp; // force palette reinit below
+        work->bpp_mode = PaletteBPP::BPP_4; // force palette reinit below
     }
 
-    if (work->bpp8 != is8bpp || !palette)
+    if (work->bpp_mode != PaletteBPP::BPP_8 || !palette)
     {
-        work->bpp8 = is8bpp;
+        work->bpp_mode = PaletteBPP::BPP_8;
+
         // Init default grayscale expPalette (overwritten later if palette != NULL)
         if (double16)
         {
-            if (is8bpp)
+            if (work->bpp_mode = PaletteBPP::BPP_8)
                 for (int i = 0; i < 256; ++i) {
                     uint16_t e = ENC16(i, i, i);
                     work->expPalette[i] = e | ((uint32_t)e << 16);
@@ -423,7 +424,7 @@ int ST7735::sendIndexedImage(const uint8_t *src, unsigned width, unsigned height
         }
         else
         {
-            if (is8bpp)
+            if (work->bpp_mode = PaletteBPP::BPP_8)
                 for (int i = 0; i < 256; ++i)
                     work->expPalette[i] = i | (i << 8) | (i << 16);
             else
