@@ -109,7 +109,7 @@ static const uint8_t initCmds[] = {
       #endif
     ST7735_INVOFF , 0      ,  // 13: Don't invert display, no args, no delay
     ST7735_COLMOD , 1      ,  // 15: set color mode, 1 arg, no delay:
-      0x03,                  //     12-bit color
+      0x05,                  //     12-bit color
 
     ST7735_GMCTRP1, 16      , //  1: Magical unicorn dust, 16 args, no delay:
       0x02, 0x1c, 0x07, 0x12,
@@ -189,15 +189,12 @@ void ST7735::sendBytes(unsigned num)
     }
     else
     {
-        uint8_t *dst = work->dataBuf;
+        uint16_t *dst16 = (uint16_t *)work->dataBuf;
         while (num--)
         {
-            uint32_t v = work->expPalette[*work->srcPtr++];
-            *dst++ = v;
-            *dst++ = v >> 8;
-            *dst++ = v >> 16;
+            *dst16++ = (uint16_t)work->expPalette[*work->srcPtr++];
         }
-        startTransfer(dst - work->dataBuf);
+        startTransfer((uint8_t *)dst16 - work->dataBuf);
     }
 }
 
@@ -242,17 +239,19 @@ void ST7735::sendWords(unsigned numBytes)
             }
         }
     } else {
-        while (numWords--)
-        {
+        uint16_t *dst16 = (uint16_t *)work->dataBuf;
+
+        while (numWords--) {
             uint32_t s = *src++;
-            uint32_t o = tbl[s & 0xff];
-            uint32_t v = tbl[(s >> 8) & 0xff];
-            *dst++ = o | (v << 24);
-            o = tbl[(s >> 16) & 0xff];
-            *dst++ = (v >> 8) | (o << 16);
-            v = tbl[s >> 24];
-            *dst++ = (o >> 16) | (v << 8);
+            *dst16++ = (uint16_t)tbl[s & 0xff];
+            *dst16++ = (uint16_t)tbl[(s >> 8) & 0xff];
+            *dst16++ = (uint16_t)tbl[(s >> 16) & 0xff];
+            *dst16++ = (uint16_t)tbl[s >> 24];
         }
+
+        work->srcPtr = (uint8_t *)src;
+        startTransfer((uint8_t *)dst16 - work->dataBuf);
+        return;
     }
     work->srcPtr = (uint8_t *)src;
     startTransfer((uint8_t *)dst - work->dataBuf);
@@ -271,18 +270,20 @@ void ST7735::sendColorsStep(ST7735 *st)
 
         switch (work->bpp_mode) {
             case PaletteBPP::BPP_8: {
-                  // Software expand 256-entry palette; no hw LUT for 8BPP
-                if (st->double16)
+                if (st->double16) {
                     for (int i = 0; i < 256; ++i) {
                         uint16_t e = ENC16((palette[i] >> 16) & 0xFF,
-                                           (palette[i] >> 8)  & 0xFF,
-                                           (palette[i]        & 0xFF));
+                                          (palette[i] >> 8)  & 0xFF,
+                                          (palette[i]       ) & 0xFF);
                         work->expPalette[i] = e | ((uint32_t)e << 16);
-                        // work->expPalette[i] = e;
                     }
-                else
-                    for (int i = 0; i < 256; ++i)
-                        work->expPalette[i] = palette[i] & 0xFFFFFF;
+                } else {
+                    for (int i = 0; i < 256; ++i) {
+                        work->expPalette[i] = ENC16((palette[i] >> 16) & 0xFF,
+                                                    (palette[i] >> 8)  & 0xFF,
+                                                    (palette[i]       ) & 0xFF);
+                    }
+                }
                 break;
             }
             case PaletteBPP::BPP_4: {
