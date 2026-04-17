@@ -185,7 +185,7 @@ void ST7735::sendBytes(unsigned num)
                 break;
             }
         }
-        startTransfer((uint8_t *)((dst - work->dataBuf) / 2));
+        startTransfer((uint8_t *)dst - work->dataBuf);
     }
     else
     {
