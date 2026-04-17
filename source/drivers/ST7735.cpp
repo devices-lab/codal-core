@@ -277,7 +277,8 @@ void ST7735::sendColorsStep(ST7735 *st)
                         uint16_t e = ENC16((palette[i] >> 16) & 0xFF,
                                            (palette[i] >> 8)  & 0xFF,
                                            (palette[i])       & 0xFF);
-                        work->expPalette[i] = e | ((uint32_t)e << 16);
+                        // work->expPalette[i] = e | ((uint32_t)e << 16);
+                        work->expPalette[i] = e;
                     }
                 else
                     for (int i = 0; i < 256; ++i)
