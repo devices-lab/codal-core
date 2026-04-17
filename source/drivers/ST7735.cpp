@@ -223,6 +223,7 @@ void ST7735::sendWords(unsigned numBytes)
                     *dst++ = tbl[(v >> 16) & 0xff];
                     *dst++ = tbl[v >> 24];
                 }
+                break;
             }
             case PaletteBPP::BPP_4: {
                 while (numWords--)
@@ -273,9 +274,9 @@ void ST7735::sendColorsStep(ST7735 *st)
                   // Software expand 256-entry palette; no hw LUT for 8BPP
                 if (st->double16)
                     for (int i = 0; i < 256; ++i) {
-                        uint16_t e = ENC16((palette[i] >> 16) & 0xff,
-                                           (palette[i] >> 8)  & 0xff,
-                                            palette[i]        & 0xff);
+                        uint16_t e = ENC16((palette[i] >> 16) & 0xFF,
+                                           (palette[i] >> 8)  & 0xFF,
+                                           (palette[i])       & 0xFF);
                         work->expPalette[i] = e | ((uint32_t)e << 16);
                     }
                 else
@@ -337,7 +338,7 @@ void ST7735::sendColorsStep(ST7735 *st)
     {
         if (st->double16) {
             // 8BPP: 1 src byte → 1 uint32 out; 4BPP: 1 src byte → 2 uint32 out
-            st->sendWords(sizeof(work->dataBuf) / (work->bpp8 ? 4 : 8));
+            st->sendWords(sizeof(work->dataBuf) / (work->bpp_mode ? 4 : 8));
         } else {
             st->sendWords((sizeof(work->dataBuf) / (3 * 4)) * 4);
         }
